@@ -18,7 +18,7 @@ from datetime import datetime
 from sklearn.metrics.pairwise import cosine_similarity
 from crawlers_v1 import YouTubeCrawler, CoupangParser, AmazonParser, SamsungCrawler, LGCrawler, BestBuyParser
 
-# ==========================================
+# ==========================================\\
 # [설정] 페이지 설정
 # ==========================================
 st.set_page_config(
@@ -1177,7 +1177,6 @@ with tab3:
              default_col_idx = list(df_target.columns).index(st.session_state['target_review_col'])
         elif "contents" in df_target.columns:
              default_col_idx = list(df_target.columns).index("contents")
-             
         review_col = st.selectbox("분석할 리뷰 컬럼 선택 (추출)", df_target.columns, index=default_col_idx, key="extract_col_select")
         
         if 'level1_recommended' not in st.session_state:
