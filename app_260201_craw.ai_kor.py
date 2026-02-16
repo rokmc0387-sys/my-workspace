@@ -197,10 +197,10 @@ def is_valid_sentence(text, irrelevant_keywords):
     if not re.search(r'[가-힣a-zA-Z]', text): return False, "무의미한 텍스트 (자음/이모티콘 등)"
     
     # 2. 단순 문장 (30자 미만)
-    if len(text) < 30: return False, "30자 미만 (단순 문장)"
+    if len(text) < 20: return False, "20자 미만 (단순 문장)"
         
     # 3. 단순 질문 (30자 미만 & ?)
-    if len(text) < 30 and '?' in text: return False, "30자 미만 단순 질문"
+    if len(text) < 20 and '?' in text: return False, "20자 미만 단순 질문"
     
     # 4. 키워드 기반 제거 (v6) - Case insensitive phrasing
     # "OP"는 대문자이거나 단어 단위일 때만 제거 (오인 방지)
