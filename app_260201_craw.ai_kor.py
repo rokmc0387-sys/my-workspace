@@ -196,10 +196,10 @@ def is_valid_sentence(text, irrelevant_keywords):
     # 1. 기호/숫자로만 구성 (한글/영문 없음)
     if not re.search(r'[가-힣a-zA-Z]', text): return False, "무의미한 텍스트 (자음/이모티콘 등)"
     
-    # 2. 단순 문장 (30자 미만)
+    # 2. 단순 문장 (20자 미만)
     if len(text) < 20: return False, "20자 미만 (단순 문장)"
         
-    # 3. 단순 질문 (30자 미만 & ?)
+    # 3. 단순 질문 (20자 미만 & ?)
     if len(text) < 20 and '?' in text: return False, "20자 미만 단순 질문"
     
     # 4. 키워드 기반 제거 (v6) - Case insensitive phrasing
