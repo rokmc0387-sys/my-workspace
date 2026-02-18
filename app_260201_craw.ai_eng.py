@@ -1204,7 +1204,7 @@ with tab3:
                         combined_samples = "\n".join([f"- {t[:200]}" for t in sample_texts])
                         
                         genai.configure(api_key=api_key)
-                        model = genai.GenerativeModel('gemini-2.0-flash')
+                        model = genai.GenerativeModel('gemini-2.5-flash')
                         
                         prompt = f"""
                         You are a product review analysis expert. Here are some sample reviews from customers.

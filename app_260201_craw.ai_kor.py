@@ -18,7 +18,7 @@ from datetime import datetime
 from sklearn.metrics.pairwise import cosine_similarity
 from crawlers_v1 import YouTubeCrawler, CoupangParser, AmazonParser, SamsungCrawler, LGCrawler, BestBuyParser
 
-# ==========================================\\
+# ==========================================
 # [설정] 페이지 설정
 # ==========================================
 st.set_page_config(
@@ -1203,7 +1203,7 @@ with tab3:
                         combined_samples = "\n".join([f"- {t[:200]}" for t in sample_texts])
                         
                         genai.configure(api_key=api_key)
-                        model = genai.GenerativeModel('gemini-2.0-flash') # 추천용은 flash 모델로 충분
+                        model = genai.GenerativeModel('gemini-2.5-flash') # 추천용은 flash 모델로 충분
                         
                         prompt = f"""
                         당신은 제품 리뷰 분석 전문가입니다. 다음은 고객들의 리뷰 샘플들입니다.
