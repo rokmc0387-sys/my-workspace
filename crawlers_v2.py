@@ -383,6 +383,9 @@ class SamsungCrawler:
                         content_el = item.select_one(".review-text .txt-slide p")
                         content = content_el.get_text(strip=True) if content_el else ""
                         
+                        source_el = item.select_one(".buy-source")
+                        source_info = source_el.get_text(strip=True) if source_el else ""
+                        
                         meta_dict = {
                             "page": current_page + 1,
                             "buy_source": source_info
@@ -766,8 +769,8 @@ class BestBuyParser:
                     meta_dict = {"options": options}
                     all_reviews_data.append({
                         "source": "Best Buy",
-                        "author": author,
-                        "date": date,
+                        "author": review_data.get('author', 'Unknown'),
+                        "date": review_data.get('date', ''),
                         "rating": str(rating),
                         "contents": contents,
                         "metadata": format_metadata(meta_dict)
