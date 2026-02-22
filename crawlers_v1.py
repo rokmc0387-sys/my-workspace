@@ -8,6 +8,17 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from bs4 import BeautifulSoup
 import time
+import json
+
+def format_metadata(meta_dict):
+    """딕셔너리를 입력받아 JSON 형태의 데이터를 'key: value | key: value' 문자열로 변환합니다."""
+    if not meta_dict:
+        return ""
+    items = []
+    for k, v in meta_dict.items():
+        if v is not None and str(v).strip() != "":
+            items.append(f"{k}: {v}")
+    return " | ".join(items)
 
 # Selenium imports
 from selenium import webdriver
@@ -135,41 +146,52 @@ class YouTubeCrawler:
         
         # 3. Flatten to Rows
         all_rows = []
-        video_base_data = {
-            "source": "YouTube",
+        video_base_meta = {
             "video_id": video['id'],
             "video_title": video['title'],
             "video_published_at": video['publishedAt'],
-            "video_view_count": video['viewCount'],
-            "contents": "" # 통합 컬럼명
+            "video_view_count": video['viewCount']
         }
 
         if not comments:
-            all_rows.append(video_base_data)
+            all_rows.append({
+                "source": "YouTube",
+                "author": "",
+                "date": "",
+                "rating": "",
+                "contents": "",
+                "metadata": format_metadata(video_base_meta)
+            })
         else:
             for comment in comments:
                 # Top comment
-                row = video_base_data.copy()
-                row.update({
-                    "contents": comment.get('text'),
-                    "author": comment.get('author'),
-                    "like_count": comment.get('likeCount'),
-                    "date": comment.get('publishedAt'),
-                    "is_reply": False
+                meta = video_base_meta.copy()
+                meta["like_count"] = comment.get('likeCount')
+                meta["is_reply"] = False
+                
+                all_rows.append({
+                    "source": "YouTube",
+                    "author": comment.get('author', ''),
+                    "date": comment.get('publishedAt', ''),
+                    "rating": "",
+                    "contents": comment.get('text', ''),
+                    "metadata": format_metadata(meta)
                 })
-                all_rows.append(row)
                 
                 # Replies
                 for reply in comment.get('replies', []):
-                    rep_row = video_base_data.copy()
-                    rep_row.update({
-                        "contents": reply.get('text'),
-                        "author": reply.get('author'),
-                        "like_count": reply.get('likeCount'),
-                        "date": reply.get('publishedAt'),
-                        "is_reply": True
+                    rep_meta = video_base_meta.copy()
+                    rep_meta["like_count"] = reply.get('likeCount')
+                    rep_meta["is_reply"] = True
+                    
+                    all_rows.append({
+                        "source": "YouTube",
+                        "author": reply.get('author', ''),
+                        "date": reply.get('publishedAt', ''),
+                        "rating": "",
+                        "contents": reply.get('text', ''),
+                        "metadata": format_metadata(rep_meta)
                     })
-                    all_rows.append(rep_row)
 
         return pd.DataFrame(all_rows)
 
@@ -186,42 +208,35 @@ class CoupangParser:
             return pd.DataFrame()
 
         for article in articles:
-            review_data = {"source": "Coupang"}
             try:
                 # 사용자 이름
                 user_el = article.select_one('span[data-member-id]')
-                review_data['author'] = user_el.text.replace('\xa0', '').strip() if user_el else "Unknown"
+                author = user_el.text.replace('\xa0', '').strip() if user_el else "Unknown"
 
                 # 별점
-                # 쿠팡 별점 구조(i 태그 개수 등)에 따라 다를 수 있음. 
-                # 여기선 기존 코드의 'twc-bg-full-star' 개수를 셈
-                rating_container = article.select_one('div.twc-flex.twc-items-center.twc-gap-\\[6px\\]')
-                
-                # Simple fallback if select fails
-                stars = article.find_all('i', class_='twc-bg-full-star')
-                review_data['stars'] = len(stars)
+                stars_el = article.find_all('i', class_='twc-bg-full-star')
+                rating = len(stars_el) if stars_el else ""
 
                 # 작성일
-                # 날짜 형식 2024.11.15 등
                 date_el = article.find(string=re.compile(r'\d{4}\.\d{2}\.\d{2}'))
-                review_data['date'] = date_el.strip() if date_el else ""
+                date = date_el.strip() if date_el else ""
 
                 # 내용
-                # span[translate="no"]
                 content_el = article.select_one('span[translate="no"]')
-                review_data['contents'] = content_el.get_text('\n', strip=True) if content_el else ""
+                contents = content_el.get_text('\n', strip=True) if content_el else ""
 
-                # 제목 (Optional - 쿠팡 리뷰엔 제목이 없을 수도, headline class 등)
-                headline_el = article.select_one('div.twc-font-bold.twc-mb-\\[8px\\]') 
-                # 위 selector가 정확하지 않을 수 있음, bs4 find로 대체 시도
-                # 보통 내용 바로 위에 제목이 있음. 생략 가능.
-                
-                # 구매 옵션
-                # div class="twc-line-clamp-[1]" ...
-                # 좀 더 일반적인 클래스 매칭이 필요할 수 있음.
-                
-                if review_data['contents']:
-                    all_reviews_data.append(review_data)
+                # 다른 특수 정보는 필요 시 이곳에 추출하여 meta_dict에 넣습니다.
+                meta_dict = {}
+
+                if contents:
+                    all_reviews_data.append({
+                        "source": "Coupang",
+                        "author": author,
+                        "date": date,
+                        "rating": str(rating),
+                        "contents": contents,
+                        "metadata": format_metadata(meta_dict)
+                    })
 
             except Exception as e:
                 print(f"Parsing error: {e}")
@@ -247,52 +262,43 @@ class AmazonParser:
             return pd.DataFrame()
             
         for item in reviews:
-            review_data = {"source": "Amazon"}
             try:
                 # 사용자 이름
                 author_el = item.select_one('.a-profile-name')
-                review_data['author'] = author_el.get_text(strip=True) if author_el else "Unknown"
+                author = author_el.get_text(strip=True) if author_el else "Unknown"
                 
                 # 별점 (예: 5.0 out of 5 stars)
-                # 구조: <i data-hook="review-star-rating"><span class="a-icon-alt">별 5개 중 5.0</span></i>
                 rating_el = item.select_one('i[data-hook="review-star-rating"] span.a-icon-alt')
                 if not rating_el:
                     rating_el = item.select_one('i[data-hook="cmps-review-star-rating"] span.a-icon-alt')
                 
                 rating_text = rating_el.get_text(strip=True) if rating_el else ""
-                # 숫자만 추출 (예: 5.0)
                 match = re.search(r'(\d+(\.\d+)?)', rating_text)
-                review_data['rating'] = match.group(1) if match else rating_text
+                rating = match.group(1) if match else rating_text
                 
                 # 작성일
                 date_el = item.select_one('span[data-hook="review-date"]')
-                review_data['date'] = date_el.get_text(strip=True) if date_el else ""
+                date = date_el.get_text(strip=True) if date_el else ""
                 
                 # 옵션 (색상, 스타일 등)
                 options_el = item.select_one('a[data-hook="format-strip"]')
-                review_data['options'] = options_el.get_text(strip=True) if options_el else ""
+                options = options_el.get_text(strip=True) if options_el else ""
                 
                 # 제목
                 title_el = item.select_one('a[data-hook="review-title"]')
                 title_text = ""
                 if title_el:
-                    # 번역된 텍스트와 원문이 섞여 있을 수 있음. 원문(span.cr-original-review-content) 우선 추출
                     original_title = title_el.select_one('.cr-original-review-content')
                     if original_title:
                         title_text = original_title.get_text(strip=True)
                     else:
-                        # <span> 태그 제거 후 텍스트만 추출 (숨겨진 텍스트 제외 시도)
-                        # 단순 get_text() 사용 시 "별 5개 중 5.0" 텍스트가 제목 앞에 붙을 수 있음
-                        # 여기서는 간단히 전체 텍스트 사용 후 정제
                         title_text = title_el.get_text(" ", strip=True)
-                        # 앞부분의 별점 텍스트 제거 (패턴 매칭 시도)
                         title_text = re.sub(r'^\d\.\d( out of \d stars|별 \d개 중)?\s*', '', title_text).strip()
 
                 # 본문
                 body_el = item.select_one('span[data-hook="review-body"]')
                 body_text = ""
                 if body_el:
-                    # 원문 우선 추출
                     original_body = body_el.select_one('.cr-original-review-content')
                     if original_body:
                         body_text = original_body.get_text('\n', strip=True)
@@ -300,11 +306,19 @@ class AmazonParser:
                         body_text = body_el.get_text('\n', strip=True)
                 
                 # 통합 내용 구성
-                review_data['contents'] = f"{title_text}\n{body_text}".strip()
+                contents = f"{title_text}\n{body_text}".strip()
                 
-                if review_data['contents']:
-                    all_reviews_data.append(review_data)
-                    
+                if contents:
+                    meta_dict = {"options": options}
+                    all_reviews_data.append({
+                        "source": "Amazon",
+                        "author": author,
+                        "date": date,
+                        "rating": str(rating),
+                        "contents": contents,
+                        "metadata": format_metadata(meta_dict)
+                    })
+
             except Exception as e:
                 print(f"Amazon Parsing error: {e}")
                 continue
@@ -369,16 +383,17 @@ class SamsungCrawler:
                         content_el = item.select_one(".review-text .txt-slide p")
                         content = content_el.get_text(strip=True) if content_el else ""
                         
-                        source_info = item.select_one(".buyroot").get_text(strip=True) if item.select_one(".buyroot") else ""
-
+                        meta_dict = {
+                            "page": current_page + 1,
+                            "buy_source": source_info
+                        }
                         all_reviews.append({
                             "source": "Samsung.com",
-                            "page": current_page + 1, # 몇 페이지에서 긁었는지 기록
                             "author": author,
                             "date": date,
-                            "rating": rating,
-                            "buy_source": source_info,
-                            "contents": content
+                            "rating": str(rating),
+                            "contents": content,
+                            "metadata": format_metadata(meta_dict)
                         })
                         extracted_count += 1
                     except Exception as e:
@@ -523,14 +538,17 @@ class LGCrawler:
                 option_str = ", ".join(options)
 
                 # 데이터 저장
+                meta_dict = {
+                    "buy_source": source_path,
+                    "options": option_str
+                }
                 all_reviews.append({
                     "source": "LGE.co.kr",
                     "author": author,
                     "date": date,
-                    "rating": rating,
-                    "buy_source": source_path,
-                    "options": option_str,
-                    "contents": content
+                    "rating": str(rating),
+                    "contents": content,
+                    "metadata": format_metadata(meta_dict)
                 })
 
             except Exception as e:
@@ -634,14 +652,17 @@ class CoupangCrawler:
                     
                     final_content = " ".join(full_content)
 
+                    meta_dict = {
+                        "page": page,
+                        "options": option_name
+                    }
                     all_reviews.append({
                         "source": "Coupang",
-                        "page": page,
                         "author": author_text,
                         "date": date,
-                        "rating": rating,
-                        "options": option_name,
-                        "contents": final_content
+                        "rating": str(rating),
+                        "contents": final_content,
+                        "metadata": format_metadata(meta_dict)
                     })
                     extracted_cnt += 1
 
@@ -735,15 +756,22 @@ class BestBuyParser:
                 if not body_el: body_el = item.select_one('.review-text')
                 body_text = body_el.get_text('\n', strip=True) if body_el else ""
 
-                full_content = f"{title_text}\n{body_text}".strip()
-                review_data['contents'] = full_content
+                contents = f"{title_text}\n{body_text}".strip()
 
                 # 옵션 (Verified Purchase 등)
                 verified_el = item.select_one('.verified-purchase')
-                review_data['options'] = "Verified Purchase" if verified_el else ""
+                options = "Verified Purchase" if verified_el else ""
 
-                if review_data['contents']:
-                    all_reviews_data.append(review_data)
+                if contents:
+                    meta_dict = {"options": options}
+                    all_reviews_data.append({
+                        "source": "Best Buy",
+                        "author": author,
+                        "date": date,
+                        "rating": str(rating),
+                        "contents": contents,
+                        "metadata": format_metadata(meta_dict)
+                    })
 
             except Exception as e:
                 print(f"Best Buy Parsing error: {e}")
