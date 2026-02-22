@@ -225,8 +225,13 @@ class CoupangParser:
                 content_el = article.select_one('span[translate="no"]')
                 contents = content_el.get_text('\n', strip=True) if content_el else ""
 
-                # 다른 특수 정보는 필요 시 이곳에 추출하여 meta_dict에 넣습니다.
+                # 구매 옵션
+                opt_el = article.select_one('.sdp-review__article__list__info__product-info__name')
+                option_name = opt_el.get_text(strip=True) if opt_el else ""
+
                 meta_dict = {}
+                if option_name:
+                    meta_dict["options"] = option_name
 
                 if contents:
                     all_reviews_data.append({
