@@ -16,7 +16,7 @@ import pickle
 import hashlib
 from datetime import datetime
 from sklearn.metrics.pairwise import cosine_similarity
-from crawlers_v1 import YouTubeCrawler, CoupangParser, AmazonParser, SamsungCrawler, LGCrawler, BestBuyParser
+from crawlers_v2 import YouTubeCrawler, CoupangParser, AmazonParser, SamsungCrawler, LGCrawler, BestBuyParser
 
 # ==========================================
 # [설정] 페이지 설정
