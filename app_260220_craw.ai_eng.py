@@ -462,7 +462,7 @@ def build_vector_index(df_embedding, api_key=None, progress_callback=None, max_w
         )
     
     # 한국어 특화 모델 로드 (최초 1회만 다운로드, 이후 캐싱)
-    model = SentenceTransformer('jhgan/ko-sroberta-multitask')
+    model = SentenceTransformer('./my-special-roberta')
     
     total = len(df_embedding)
     
@@ -535,7 +535,7 @@ def search_similar_examples(query_aspect, query_opinion, vector_db, metadata, ap
     
     # 모델 로드 (전달되지 않으면 새로 로드)
     if model is None:
-        model = SentenceTransformer('jhgan/ko-sroberta-multitask')
+        model = SentenceTransformer('./my-special-roberta')
     
     # 쿼리 텍스트 생성
     query_text = f"Aspect: {clean_text(query_aspect)}, Opinion: {clean_text(query_opinion)}"
@@ -1574,7 +1574,7 @@ with tab5:
                     from sentence_transformers import SentenceTransformer
                     st.info("🧠 로컬 AI 모델을 로드 중입니다... (최초 1회, 잠시만 기다려주세요)")
                     # device='cpu'로 명시하여 스레드 충돌/Meta Tensor 에러 방지
-                    local_model = SentenceTransformer('jhgan/ko-sroberta-multitask', device='cpu')
+                    local_model = SentenceTransformer('./my-special-roberta', device='cpu')
                 except Exception as e:
                     st.error(f"모델 로드 실패: {e}")
                     st.stop()
